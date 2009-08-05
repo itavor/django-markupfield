@@ -30,7 +30,7 @@ Installation
 5. Copy of symlink django-markupfield/markupfield/media/markupfield to your
    Django admin media directory::
    
-   ln -s <path_to_app>/django-markupfield/markupfield/media/markupfield <path_to_django>/django/contrib/admin/media/
+    ln -s <path_to_app>/django-markupfield/markupfield/media/markupfield <path_to_django>/django/contrib/admin/media/
 
 Settings
 ========
