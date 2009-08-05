@@ -2,60 +2,85 @@
 django-markupfield
 ==================
 
-An implementation of a custom MarkupField for Django.  A MarkupField is in 
-essence a TextField with an associated markup type.  The field also caches
-its rendered value on the assumption that disk space is cheaper than CPU 
-cycles in a web application.
+An implementation of a custom MarkupField for Django, coupled with a rich
+editing widget.  A MarkupField is in essence a TextField with an associated
+markup type.  The field also caches its rendered value on the assumption that
+disk space is cheaper than CPU cycles in a web application.
+
+This project is based on the work of
+`jamesturk <http://github.com/jamesturk/django-markupfield>`_, adding the rich
+editing widget and a flexible, extensible markup rendering system.
 
 Installation
 ============
 
-You can obtain the latest release of django-markupfield via
-`PyPI <http://pypi.python.org/pypi/django-markupfield>`_ or check out the 
-`latest source <http://github.com/jamesturk/django-markupfield>`_
+1. Check out the `latest source <http://github.com/itavor/django-markupfield>`_
 
-To install a source distribution::
+2. Ensure the `markupfield` directory is in your python path
 
-    python setup.py install
+3. Add ``'markupfield'`` to your ``INSTALLED_APPS``
 
-It is also possible to install django-markupfield with
-`pip <http://pypi.python.org/pypi/pip>`_ or easy_install.
+4. Add markupfield.urls to your project's urls::
 
-It is not necessary to add ``'markupfield'`` to your ``INSTALLED_APPS``, it 
-merely needs to be on your ``PYTHONPATH``.
+    urlpatterns = patterns('',
+        url(r'^markup/', include('markupfield.urls')),
+        ...
+    )
+
+5. Copy of symlink django-markupfield/markupfield/media/markupfield to your
+   Django admin media directory::
+   
+   ln -s <path_to_app>/django-markupfield/markupfield/media/markupfield <path_to_django>/django/contrib/admin/media/
 
 Settings
 ========
 
-To best make use of MarkupField you should define the 
-``MARKUP_FIELD_TYPES`` setting, a dictionary of strings to callables that 
-'render' a markup type::
+MARKUP_USE_MARKITUP:
+    If set to True or not defined, MarkupField editing forms will use the `MarkItUp!`
+    rich editing widget. The widget will update itself for the currently selected
+    markup type.
 
-    import markdown
-    from docutils.core import publish_parts
+MARKUP_TYPES_OPTIONS:
+    A dictionary defining markup types which will be available for use, along with
+    optional parameters to be passed to each markup rendrering function.
 
-    def render_rest(markup):
-        parts = publish_parts(source=markup, writer_name="html4css1")
-        return parts["fragment"]
+    Omitting this setting is equivalent to setting::
 
-    MARKUP_FIELD_TYPES = {
-        'markdown': markdown.markdown,
-        'ReST': render_rest,
-    }
+        MARKUP_TYPES_OPTIONS = {
+            'plain': {'urlize': True, 'linebreaks': True},
+            'html': None,
+            'markdown': None,
+            'textile': {'encoding': 'utf-8', 'output': 'utf-8'},
+            'ReST': None,
+        }
 
-If you do not define a ``MARKUP_FIELD_TYPES`` then one is provided with the
-following markup types available:
+    The actual markup types available will be limited to those for which a renderer
+    is available. The requirements for the default renderers are:
 
-html:
-    allows HTML, potentially unsafe
-plain:
-    plain text markup, calls urlize and replaces text with linebreaks
-markdown:
-    default `markdown`_ renderer (only if `python-markdown`_ is installed)
-restructuredtext:
-    default `ReST`_ renderer (only if `docutils`_ is installed)
-textile:
-    default `textile`_ renderer (only if `textile`_ is installed)
+        html:
+            Always available
+        plain:
+            Always available
+        markdown:
+            `python-markdown`_
+        restructuredtext:
+            `docutils`_
+        textile:
+            `textile`_
+
+Custom Markup Types
+-------------------
+
+Additional markup types can be defined by writing a rendering function and registering
+it with the app::
+
+    import imaginary_markup_library
+    from markupfield.markup import renderer
+
+    def render_imaginary_markup(markup, **kwargs):
+        return imaginary_markup_library.render(markup, **kwargs)
+
+    renderer.register('imaginary', render_imaginary_markup, option1='yes', option2='no')
 
 .. _`markdown`: http://daringfireball.net/projects/markdown/
 .. _`ReST`: http://docutils.sourceforge.net/rst.html
@@ -145,9 +170,8 @@ assignment to ``a.body_markup_type`` is equivalent to assignment to
 Todo
 ====
 
- * validate markup_type options
- * convert tests from doctest to unittest
- * add a test for __unicode__
+ * add unit tests for new features
+ * explore possibility of merging with jamesturk's trunk
 
 Origin
 ======

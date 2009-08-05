@@ -1,6 +1,7 @@
+import settings
+
 from django.utils.html import linebreaks, urlize
 from django.utils.functional import curry, wraps
-from django.utils.translation import ugettext_lazy as _
 
 def html(text, **kwargs):
     """
@@ -12,7 +13,11 @@ def plain(text, **kwargs):
     """
     Converts plain text to HTML, and returns the HTML.
     """
-    return urlize(linebreaks(text))
+    if kwargs.get('linebreaks', False):
+        text = linebreaks(text)
+    if kwargs.get('urlize', False):
+        text = urlize(text)
+    return text
 
 def textile(text, **kwargs):
     """
@@ -39,14 +44,6 @@ def restructuredtext(text, **kwargs):
                                **kwargs)
     return parts['fragment']
 
-# Include formats supported by a vanilla Django install
-
-DEFAULT_MARKUP_FILTERS = {
-    'html': html,
-    'plain': plain,
-    'textile': textile,
-}
-
 class MarkupRenderer(object):
     """
     Generic markup renderer which can handle multiple text-to-HTML
@@ -54,8 +51,6 @@ class MarkupRenderer(object):
     """
     def __init__(self):
         self._filters = {}
-        for filter_name, filter_func in DEFAULT_MARKUP_FILTERS.items():
-            self.register(filter_name, filter_func)
 
     def register(self, filter_name, filter_func, **kwargs):
         """
@@ -68,8 +63,8 @@ class MarkupRenderer(object):
         Converts text to HTML using the named filter.
         """
         if filter_name not in self._filters:
-            raise ValueError("'%s' is not a registered markup filter. Registered filters are: %s." % (filter_name,
-                                                                                                       ', '.join(self._filters.iterkeys())))
+            raise ValueError("'%s' is not a registered markup filter. Registered filters are: %s." % \
+                (filter_name, ', '.join(self.list_filters())))
         filter_func = self._filters[filter_name]
         return filter_func(text)
 
@@ -81,16 +76,43 @@ class MarkupRenderer(object):
 
 renderer = MarkupRenderer()
 
+_blank = {}
+
+# Register formats supported by a vanilla Django install
+
+if 'plain' in settings.TYPES_OPTIONS:
+    opts = settings.TYPES_OPTIONS['plain'] or _blank
+    renderer.register('plain', plain, **opts)
+
+if 'html' in settings.TYPES_OPTIONS:
+    opts = settings.TYPES_OPTIONS['html'] or _blank
+    renderer.register('html', html, **opts)
+
 # Add formats which depend on external (possibly unavailable) packages
 
-try:
-    import markdown as ignore
-    formatter.register('markdown', markdown)
-except ImportError:
-    pass
+if 'markdown' in settings.TYPES_OPTIONS:
+    try:
+        import markdown as ignore
+    except ImportError:
+        pass
+    else:
+        opts = settings.TYPES_OPTIONS['markdown'] or _blank
+        renderer.register('markdown', markdown, **opts)
 
-try:
-    from docutils.core import publish_parts
-    formatter.register('restructuredtext', restructuredtext)
-except ImportError:
-    pass
+if 'textile' in settings.TYPES_OPTIONS:
+    try:
+        import textile as ignore
+    except ImportError:
+        pass
+    else:
+        opts = settings.TYPES_OPTIONS['textile'] or _blank
+        renderer.register('textile', textile, **opts)
+
+if 'ReST' in settings.TYPES_OPTIONS:
+    try:
+        from docutils.core import publish_parts
+    except ImportError:
+        pass
+    else:
+        opts = settings.TYPES_OPTIONS['ReST'] or _blank
+        renderer.register('ReST', restructuredtext, **opts)

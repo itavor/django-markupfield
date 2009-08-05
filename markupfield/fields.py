@@ -1,48 +1,14 @@
-from django.conf import settings
+import widgets
+import settings
+from markup import renderer
+
 from django.db import models
 from django.utils.safestring import mark_safe
-from django.utils.html import linebreaks, urlize
 from django.utils.functional import curry
 from django.core.exceptions import ImproperlyConfigured
-import widgets
 
 _rendered_field_name = lambda name: '_%s_rendered' % name
 _markup_type_field_name = lambda name: '%s_markup_type' % name
-
-# build _DEFAULT_MARKUP_TYPES
-_DEFAULT_MARKUP_TYPES = {
-    'html': lambda markup: markup,
-    'plain': lambda markup: urlize(linebreaks(markup)),
-}
-
-try:
-    import markdown
-    _DEFAULT_MARKUP_TYPES['markdown'] = markdown.markdown
-except ImportError:
-    pass
-
-try:
-    from docutils.core import publish_parts
-
-    def render_rest(markup):
-        overrides = getattr(settings, "RESTRUCTUREDTEXT_FILTER_SETTINGS", {})
-        parts = publish_parts(source=markup, writer_name="html4css1",
-                              settings_overrides=overrides)
-        return parts["fragment"]
-
-    _DEFAULT_MARKUP_TYPES['restructuredtext'] = render_rest
-except ImportError:
-    pass
-
-try:
-    import textile
-    _DEFAULT_MARKUP_TYPES['textile'] = curry(textile.textile,
-                                             encoding='utf-8', output='utf-8')
-except ImportError:
-    pass
-
-_MARKUP_TYPES = getattr(settings, 'MARKUP_FIELD_TYPES', _DEFAULT_MARKUP_TYPES)
-
 
 class Markup(object):
 
@@ -107,7 +73,6 @@ class MarkupDescriptor(object):
         else:
             obj.__dict__[self.field.name] = value
 
-
 class MarkupField(models.TextField):
 
     def __init__(self, verbose_name=None, name=None, markup_type=None,
@@ -115,21 +80,21 @@ class MarkupField(models.TextField):
         if markup_type and default_markup_type:
             raise ValueError('Cannot specify both markup_type and default_markup_type')
         self.default_markup_type = markup_type or default_markup_type
-        if (self.default_markup_type and
-            self.default_markup_type not in _MARKUP_TYPES):
-            raise ValueError('Invalid markup type, allowed values: %s',
-                             ', '.join(_MARKUP_TYPES.iterkeys()))
+        markup_types = renderer.list_filters()
+        if self.default_markup_type and (not self.default_markup_type in markup_types):
+            raise ValueError('Invalid markup type, allowed values: %s' % \
+                             ', '.join(renderer.list_filters()))
         self.markup_type_editable = markup_type is None
         super(MarkupField, self).__init__(verbose_name, name, **kwargs)
 
     def contribute_to_class(self, cls, name):
-        keys = _MARKUP_TYPES.keys()
+        keys = renderer.list_filters()
         markup_type_field = models.CharField(max_length=30,
-            choices=zip(keys, keys), default=self.default_markup_type,
+            choices=[(k, k) for k in keys], default=self.default_markup_type,
             editable=self.markup_type_editable, blank=self.blank)
         rendered_field = models.TextField(editable=False)
-        markup_type_field.creation_counter = self.creation_counter+1
-        rendered_field.creation_counter = self.creation_counter+2
+        markup_type_field.creation_counter = self.creation_counter + 1
+        rendered_field.creation_counter = self.creation_counter + 2
         cls.add_to_class(_markup_type_field_name(name), markup_type_field)
         cls.add_to_class(_rendered_field_name(name), rendered_field)
         super(MarkupField, self).contribute_to_class(cls, name)
@@ -138,7 +103,7 @@ class MarkupField(models.TextField):
 
     def pre_save(self, model_instance, add):
         value = super(MarkupField, self).pre_save(model_instance, add)
-        rendered = _MARKUP_TYPES[value.markup_type](value.raw)
+        rendered = renderer(value.markup_type, value.raw)
         setattr(model_instance, _rendered_field_name(self.attname), rendered)
         return value.raw
 
@@ -153,10 +118,15 @@ class MarkupField(models.TextField):
         return value.raw
 
     def formfield(self, **kwargs):
-        defaults = {'widget': widgets.MarkupTextarea}
+        defaults = {'widget': settings.USE_MARKITUP and \
+                    widgets.RichMarkupTextarea or widgets.MarkupTextarea}
         defaults.update(kwargs)
         return super(MarkupField, self).formfield(**defaults)
 
-# register MarkupField to use the custom widget in the Admin
+# Register MarkupField to use the custom widget in the Admin
 from django.contrib.admin.options import FORMFIELD_FOR_DBFIELD_DEFAULTS
-FORMFIELD_FOR_DBFIELD_DEFAULTS[MarkupField] = {'widget': widgets.AdminMarkupTextareaWidget}
+FORMFIELD_FOR_DBFIELD_DEFAULTS[MarkupField] = {
+    'widget': settings.USE_MARKITUP and \
+        widgets.AdminRichMarkupTextareaWidget or \
+        widgets.AdminMarkupTextareaWidget
+}

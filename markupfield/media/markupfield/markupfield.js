@@ -19,13 +19,18 @@ var DJMARKUP = {
     do_markitup: function($ta, type) {
         var ctype = type.substring(0, 1).toUpperCase() + type.substring(1, type.length);
         DJMARKUP.load_css(type);
+        eval('my' + ctype + 'Settings');
+        //return;
         $ta.markItUp(eval('my' + ctype + 'Settings'));
+
+        var parent = $ta.parents('[class=markItUp]'),
+            height = $ta.height() + 30;
+        $ta.after('<style>#'+parent.attr('id')+' .markItUpPreviewFrame {height:'+height+'px}</style>');
     },
 
     markitup: function(name) {
-        var id = 'id_'+name,
-            $ta = $('#'+id),
-            type = $('#'+id+'_markup_type').val();
+        var $ta = $('#id_'+name),
+            type = $('#id_'+name+'_markup_type').val();
 
         $ta.markItUpRemove();
         $.getScript(

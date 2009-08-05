@@ -1,7 +1,7 @@
 r"""
 >>> from django.core import serializers
 >>> from markupfield.fields import MarkupField, Markup
->>> from markupfield.widgets import MarkupTextarea, AdminMarkupTextareaWidget
+>>> from markupfield.widgets import MarkupTextarea, AdminRichMarkupTextareaWidget
 >>> from markupfield.tests.models import Post, Article
 
 # Create a few example posts
@@ -86,7 +86,7 @@ True
 
 # make sure that a markup_type field shows the correct choices
 >>> af.fields['normal_field_markup_type'].choices
-[('markdown', 'markdown'), ('ReST', 'ReST')]
+[('markdown', 'markdown'), ('plain', 'plain'), ('html', 'html'), ('ReST', 'ReST')]
 
 # test default_markup_type
 >>> af.fields['normal_field_markup_type'].initial is None
@@ -98,7 +98,7 @@ u'markdown'
 #   borrows from regressiontests/admin_widgets/tests.py
 >>> from django.contrib import admin
 >>> ma = admin.ModelAdmin(Post, admin.site)
->>> isinstance(ma.formfield_for_dbfield(Post._meta.get_field('body')).widget, AdminMarkupTextareaWidget)
+>>> isinstance(ma.formfield_for_dbfield(Post._meta.get_field('body')).widget, AdminRichMarkupTextareaWidget)
 True
 
 """
