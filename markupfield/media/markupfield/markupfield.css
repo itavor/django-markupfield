@@ -1,0 +1,15 @@
+#switcher {
+    height: 30px;
+    padding-top: 15px;
+}
+#switcher li {
+    list-style: none;
+    float: left;
+    margin-right: 20px;
+}
+#switcher .currentSet {
+    font-weight: bold;
+    color: #990066;
+    padding-left: 20px;
+    background: transparent url(accept.png) no-repeat top left;
+}
